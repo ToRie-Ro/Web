@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monaco Editor</title>
+    <style>
+        html, body, #container {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #181818; /* YouTube dark mode gray */
+        }
+
+        body {
+            background-color: #181818;
+            color: #ffffff; /* Ensures text outside Monaco is readable */
+        }
+
+        /* Neon cursor effect */
+        .monaco-editor .cursors-layer .cursor {
+            box-shadow: 0 0 8px #000000 !important;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.0/min/vs/loader.js"></script>
+</head>
+<body>
+    <div id="container"></div>
+    <script>
+        require.config({
+            paths: {
+                'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.0/min/vs'
+            }
+        });
+
+        let editor;
+        let initialContent = '-- Welcome to ZeZer\n-- Enter your Lua script here\n\nprint("Hello from ZeZer!")';
+
+        require(['vs/editor/editor.main'], function() {
+            monaco.languages.register({ id: 'lua' });
+
+            monaco.languages.setMonarchTokensProvider('lua', {
+                defaultToken: '',
+                tokenPostfix: '.lua',
+                keywords: [
+                    'and', 'break', 'do', 'else', 'elseif', 'end',
+                    'false', 'for', 'function', 'goto', 'if', 'in',
+                    'local', 'nil', 'not', 'or', 'repeat', 'return',
+                    'then', 'true', 'until', 'while'
+                ],
+                typeKeywords: ['string', 'number', 'boolean', 'function', 'userdata', 'thread', 'table'],
+                operators: [
+                    '+', '-', '*', '/', '%', '^', '#', '==', '~=', '<=', '>=', '<', '>',
+                    '=', ';', ':', ',', '.', '..', '...'
+                ],
+                symbols: /[=><!~?:&|+\-*\/\^%]+/,
+                escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
+                tokenizer: {
+                    root: [
+                        [/[a-z_]\w*/, {
+                            cases: {
+                                '@keywords': 'keyword',
+                                '@typeKeywords': 'type',
+                                '@default': 'identifier'
+                            }
+                        }],
+                        [/[A-Z][\w\$]*/, 'type.identifier'],
+                        { include: '@whitespace' },
+                        [/function(?=\s*\()/, 'keyword'],
+                        [/function(?=\s+[a-zA-Z_])/, 'keyword'],
+                        [/"([^"\\]|\\.)*$/, 'string.invalid'],
+                        [/'([^'\\]|\\.)*$/, 'string.invalid'],
+                        [/"/, 'string', '@string_double'],
+                        [/'/, 'string', '@string_single'],
+                        [/\[(=*)\[/, 'string', '@string_multiline'],
+                        [/[\{\}\[\]\(\)]/, '@brackets'],
+                        [/@symbols/, { cases: { '@operators': 'operator', '@default': '' } }],
+                        [/\d*\.\d+([eE][\-+]?\d+)?/, 'number.float'],
+                        [/0[xX][0-9a-fA-F]+/, 'number.hex'],
+                        [/\d+/, 'number']
+                    ],
+                    string_double: [
+                        [/[^\\"]+/, 'string'],
+                        [/@escapes/, 'string.escape'],
+                        [/\\./, 'string.escape.invalid'],
+                        [/"/, 'string', '@pop']
+                    ],
+                    string_single: [
+                        [/[^\\']+/, 'string'],
+                        [/@escapes/, 'string.escape'],
+                        [/\\./, 'string.escape.invalid'],
+                        [/'/, 'string', '@pop']
+                    ],
+                    string_multiline: [
+                        [/[^\]]+/, 'string'],
+                        [/\](=*)\]/, { cases: { '$1==$S2': { token: 'string', next: '@pop' }, '@default': 'string' } }]
+                    ],
+                    whitespace: [
+                        [/[ \t\r\n]+/, 'white'],
+                        [/--\[([=]*)\[/, 'comment', '@comment_block'],
+                        [/--.*$/, 'comment']
+                    ],
+                    comment_block: [
+                        [/[^\]]+/, 'comment'],
+                        [/\]([=]*)\]/, { cases: { '$1==$S2': { token: 'comment', next: '@pop' }, '@default': 'comment' } }]
+                    ]
+                }
+            });
+
+            monaco.editor.defineTheme('neon-dark', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [
+                    { token: 'comment', foreground: '6a9955', fontStyle: 'italic' },
+                    { token: 'keyword', foreground: 'c586c0' },
+                    { token: 'string', foreground: 'ce9178' },
+                    { token: 'number', foreground: 'b5cea8' },
+                    { token: 'function', foreground: 'dcdcaa' },
+                    { token: 'operator', foreground: 'd4d4d4' },
+                    { token: 'identifier', foreground: '9cdcfe' },
+                    { token: 'type', foreground: '4ec9b0' }
+                ],
+                colors: {
+                    'editor.background': '#181818',
+                    'editor.foreground': '#D4D4D4',
+                    'editorCursor.foreground': '#FF00FF',
+                    'editor.lineHighlightBackground': '#2d2d2d',
+                    'editorLineNumber.foreground': '#858585',
+                    'editor.selectionBackground': '#404040',
+                    'editor.inactiveSelectionBackground': '#333333',
+                    'editorSuggestWidget.background': '#252525',
+                    'editorSuggestWidget.border': '#343434',
+                    'editorSuggestWidget.selectedBackground': '#404040',
+                    'editorHoverWidget.background': '#252525',
+                    'editorHoverWidget.border': '#343434'
+                }
+            });
+
+            editor = monaco.editor.create(document.getElementById('container'), {
+                value: initialContent,
+                language: 'lua',
+                theme: 'neon-dark',
+                fontFamily: 'Consolas, "Courier New", monospace',
+                fontSize: 14,
+                minimap: { enabled: true },
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                cursorBlinking: 'phase',
+                cursorWidth: 2,
+                renderLineHighlight: 'all',
+                lineNumbers: 'on',
+                roundedSelection: true,
+                wordWrap: 'on'
+            });
+
+            try {
+                window.external.notify('editorReady');
+            } catch (e) {
+                console.log('Editor ready (notify not supported)');
+            }
+        });
+
+        function getEditorContent() {
+            if (editor) {
+                return editor.getValue();
+            }
+            return '';
+        }
+
+        function setEditorContent(content) {
+            if (editor) {
+                editor.setValue(content || '');
+                return true;
+            }
+            return false;
+        }
+    </script>
+</body>
+</html>
